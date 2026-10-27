@@ -8,6 +8,10 @@
 AutoGCRoot* callback = 0;
 
 - (id) initWithCallback:(value)cb {
+    if (callback != 0) {
+        delete callback;
+        callback = 0;
+    }
     callback = new AutoGCRoot(cb);
     NSLog(@"initWithCallback");
     return self;

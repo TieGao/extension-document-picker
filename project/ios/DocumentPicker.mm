@@ -23,7 +23,41 @@ namespace extension_document_picker {
         picker.delegate = pickerDelegate;
         picker.modalPresentationStyle = UIModalPresentationFormSheet;
 
-        [[[[UIApplication sharedApplication] keyWindow] rootViewController] presentViewController:picker animated:YES completion:nil];
+        // UIDocumentPickerViewController.delegate is weak: without a strong reference the delegate
+        // dies when this scope ends and callbacks never fire (upstream relied on leaking it).
+        #if __has_feature(objc_arc)
+        static DocumentPickerDelegate * __strong currentDelegate = nil;
+        currentDelegate = pickerDelegate;
+        #else
+        static DocumentPickerDelegate *currentDelegate = nil;
+        [currentDelegate release];
+        currentDelegate = [pickerDelegate retain];
+        [pickerDelegate release];
+        #endif
+
+        // keyWindow is nil on iOS 13+ scene-based apps; walk connected scenes instead.
+        UIWindow *window = nil;
+        if (@available(iOS 13.0, *)) {
+            for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+                if (scene.activationState != UISceneActivationStateForegroundActive) continue;
+                if ([scene isKindOfClass:[UIWindowScene class]]) {
+                    for (UIWindow *w in ((UIWindowScene *)scene).windows) {
+                        if (w.isKeyWindow) { window = w; break; }
+                    }
+                }
+                if (window != nil) break;
+            }
+        }
+        if (window == nil) window = [UIApplication sharedApplication].keyWindow;
+
+        if (window != nil && window.rootViewController != nil) {
+            [window.rootViewController presentViewController:picker animated:YES completion:nil];
+        }
+
+        #if !__has_feature(objc_arc)
+        [allowedUTIs release];
+        [picker release];
+        #endif
 
     }
 }
