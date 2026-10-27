@@ -53,6 +53,7 @@ public class DocumentPickerExtension extends Extension {
 		DocumentPickerExtension.callback = callback;
 		Intent picker = new Intent();
 		picker.setType("*/*");
+		picker.addCategory(Intent.CATEGORY_OPENABLE);
 		picker.setAction(Intent.ACTION_GET_CONTENT);
 		Extension.mainActivity.startActivityForResult(picker, PICKER_REQUEST);
 	}
@@ -67,12 +68,15 @@ public class DocumentPickerExtension extends Extension {
 
 		super.onActivityResult(requestCode, resultCode, data);
 
-		if (requestCode == PICKER_REQUEST && resultCode == Activity.RESULT_OK) {
-			Uri uri = data.getData();
-			if (uri != null && callback != null) {
+		if (requestCode == PICKER_REQUEST && callback != null) {
+			Uri uri = (resultCode == Activity.RESULT_OK && data != null) ? data.getData() : null;
+			if (uri != null) {
 				callback.call1("callback", org.haxe.extension.documentpicker.FileUtils.saveUriToCacheFile(Extension.mainContext, uri).getPath());
-				callback = null;
+			} else {
+				// Cancelled or no file returned: report null so the Haxe side can treat it as a cancel
+				callback.call1("callback", null);
 			}
+			callback = null;
 		}
 
 		return true;
